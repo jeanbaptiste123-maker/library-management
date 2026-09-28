@@ -1,0 +1,43 @@
+<!-- library/templates/access_denied.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Access Denied</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .error-code {
+            font-size: 72px;
+            color: #e74c3c;
+        }
+        .message {
+            font-size: 24px;
+            color: #333;
+            margin: 20px 0;
+        }
+        .back-link {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="error-code">403</div>
+        <div class="message">{{ message|default:"Access Denied" }}</div>
+        <p>You don't have permission to access this page.</p>
+        <a href="javascript:history.back()" class="back-link">Go Back</a>
+    </div>
+</body>
+</html>

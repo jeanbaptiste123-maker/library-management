@@ -1,0 +1,319 @@
+<!-- library/templates/librarian/return.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Return Book - Librarian Panel</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f6f9; }
+        
+        .header { background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 24px; }
+        .header a { color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 5px; margin-left: 10px; }
+        
+        .container { padding: 20px; max-width: 1200px; margin: 0 auto; }
+        
+        .return-card { background: white; border-radius: 10px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .return-card h2 { margin-bottom: 20px; color: #2c3e50; border-left: 4px solid #e74c3c; padding-left: 15px; }
+        
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; color: #2c3e50; font-weight: bold; }
+        .form-group select, .form-group input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
+        .form-group select:focus, .form-group input:focus { outline: none; border-color: #e74c3c; }
+        
+        .info-box { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #e74c3c; }
+        .info-box p { margin: 5px 0; }
+        
+        .btn { padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .btn-primary { background: #e74c3c; color: white; width: 100%; }
+        .btn-primary:hover { background: #c0392b; }
+        
+        .borrow-info { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 20px; display: none; }
+        .borrow-info h4 { color: #2c3e50; margin-bottom: 10px; }
+        .borrow-detail { margin: 8px 0; }
+        .borrow-detail strong { width: 150px; display: inline-block; }
+        
+        .fine-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 8px; margin-top: 15px; display: none; }
+        .fine-amount { font-size: 24px; font-weight: bold; color: #e74c3c; }
+        
+        .success { background: #d4edda; color: #155724; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .error { background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        
+        .loader { display: none; text-align: center; margin: 10px; }
+        .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #e74c3c; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: white; padding: 20px; border-radius: 10px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .stat-number { font-size: 32px; font-weight: bold; color: #e74c3c; }
+        .stat-label { color: #7f8c8d; margin-top: 5px; }
+        
+        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        .search-box input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
+        .search-box button { padding: 12px 20px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        
+        @media (max-width: 768px) {
+            .search-box { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📥 Return Book - Librarian</h1>
+        <div>
+            <a href="{% url 'librarian_dashboard' %}">← Dashboard</a>
+            <a href="{% url 'logout' %}">Logout</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Statistics -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number">{{ borrowings|length }}</div>
+                <div class="stat-label">Currently Borrowed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="overdueCount">0</div>
+                <div class="stat-label">Overdue Books</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="todayReturns">0</div>
+                <div class="stat-label">Returned Today</div>
+            </div>
+        </div>
+        
+        <div class="return-card">
+            <h2>📥 Process Book Return</h2>
+            
+            <div id="messageContainer"></div>
+            
+            <!-- Search/Select Borrowing -->
+            <div class="form-group">
+                <label>Select Borrowing Record</label>
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Search by student name, book title, or borrowing code..." onkeyup="filterBorrowings()">
+                </div>
+                <select id="borrowSelect" onchange="getBorrowingDetails()" size="8" style="height: auto;">
+                    <option value="">-- Select a borrowing record --</option>
+                    {% for borrowing in borrowings %}
+                    <option value="{{ borrowing.id }}" 
+                            data-student="{{ borrowing.student_name }}"
+                            data-student-id="{{ borrowing.student_id_num }}"
+                            data-book="{{ borrowing.book_title }}"
+                            data-book-code="{{ borrowing.book_code }}"
+                            data-borrow-date="{{ borrowing.borrow_date }}"
+                            data-due-date="{{ borrowing.due_date }}"
+                            data-days-overdue="{{ borrowing.days_overdue|default:'0' }}">
+                        {{ borrowing.book_title }} - Borrowed by {{ borrowing.student_name }} (Due: {{ borrowing.due_date }})
+                    </option>
+                    {% empty %}
+                    <option value="">No active borrowings found</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Borrowing Details -->
+            <div id="borrowDetails" class="borrow-info">
+                <h4>📋 Borrowing Details</h4>
+                <div class="borrow-detail"><strong>Student Name:</strong> <span id="detailStudentName">-</span></div>
+                <div class="borrow-detail"><strong>Student ID:</strong> <span id="detailStudentId">-</span></div>
+                <div class="borrow-detail"><strong>Book Title:</strong> <span id="detailBookTitle">-</span></div>
+                <div class="borrow-detail"><strong>Book Code:</strong> <span id="detailBookCode">-</span></div>
+                <div class="borrow-detail"><strong>Borrow Date:</strong> <span id="detailBorrowDate">-</span></div>
+                <div class="borrow-detail"><strong>Due Date:</strong> <span id="detailDueDate">-</span></div>
+                <div class="borrow-detail"><strong>Days Overdue:</strong> <span id="detailDaysOverdue">0</span></div>
+                
+                <div id="fineDetails" class="fine-box">
+                    <p><strong>⚠️ Late Return Fine</strong></p>
+                    <p>Days Overdue: <span id="fineDays">0</span> days</p>
+                    <p>Fine Amount: <span class="fine-amount" id="fineAmount">$0.00</span></p>
+                    <p><small>Fine rate: $0.50 per day</small></p>
+                </div>
+            </div>
+            
+            <div class="loader" id="loader">
+                <div class="spinner"></div>
+                <p>Processing return...</p>
+            </div>
+            
+            <button class="btn btn-primary" onclick="processReturn()" id="returnBtn" disabled>
+                📥 Process Book Return
+            </button>
+            
+            <div class="info-box">
+                <p><strong>📌 Return Rules:</strong></p>
+                <ul style="margin-left: 20px; margin-top: 10px;">
+                    <li>Books returned after due date incur a fine of <strong>$0.50 per day</strong></li>
+                    <li>Fine will be added to student's account</li>
+                    <li>Students with unpaid fines cannot borrow new books</li>
+                    <li>Returned books become available for other students</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentBorrowId = null;
+        
+        function filterBorrowings() {
+            let input = document.getElementById('searchInput');
+            let filter = input.value.toLowerCase();
+            let select = document.getElementById('borrowSelect');
+            let options = select.options;
+            
+            for (let i = 0; i < options.length; i++) {
+                let text = options[i].text.toLowerCase();
+                if (text.includes(filter)) {
+                    options[i].style.display = '';
+                } else {
+                    options[i].style.display = 'none';
+                }
+            }
+        }
+        
+        function getBorrowingDetails() {
+            let select = document.getElementById('borrowSelect');
+            let selected = select.options[select.selectedIndex];
+            let detailsDiv = document.getElementById('borrowDetails');
+            let fineDiv = document.getElementById('fineDetails');
+            let returnBtn = document.getElementById('returnBtn');
+            
+            if (select.value && selected.value) {
+                currentBorrowId = select.value;
+                
+                let studentName = selected.getAttribute('data-student') || '-';
+                let studentId = selected.getAttribute('data-student-id') || '-';
+                let bookTitle = selected.getAttribute('data-book') || '-';
+                let bookCode = selected.getAttribute('data-book-code') || '-';
+                let borrowDate = selected.getAttribute('data-borrow-date') || '-';
+                let dueDate = selected.getAttribute('data-due-date') || '-';
+                let daysOverdue = parseInt(selected.getAttribute('data-days-overdue')) || 0;
+                
+                document.getElementById('detailStudentName').innerText = studentName;
+                document.getElementById('detailStudentId').innerText = studentId;
+                document.getElementById('detailBookTitle').innerText = bookTitle;
+                document.getElementById('detailBookCode').innerText = bookCode;
+                document.getElementById('detailBorrowDate').innerText = borrowDate;
+                document.getElementById('detailDueDate').innerText = dueDate;
+                document.getElementById('detailDaysOverdue').innerText = daysOverdue;
+                
+                if (daysOverdue > 0) {
+                    let fine = daysOverdue * 0.50;
+                    document.getElementById('fineDays').innerText = daysOverdue;
+                    document.getElementById('fineAmount').innerHTML = `$${fine.toFixed(2)}`;
+                    fineDiv.style.display = 'block';
+                } else {
+                    fineDiv.style.display = 'none';
+                }
+                
+                detailsDiv.style.display = 'block';
+                returnBtn.disabled = false;
+            } else {
+                detailsDiv.style.display = 'none';
+                returnBtn.disabled = true;
+                currentBorrowId = null;
+            }
+        }
+        
+        async function processReturn() {
+            if (!currentBorrowId) {
+                alert('Please select a borrowing record');
+                return;
+            }
+            
+            let selected = document.getElementById('borrowSelect').options[document.getElementById('borrowSelect').selectedIndex];
+            let bookTitle = selected.getAttribute('data-book') || 'this book';
+            let daysOverdue = parseInt(selected.getAttribute('data-days-overdue')) || 0;
+            let fineAmount = daysOverdue * 0.50;
+            
+            let confirmMessage = `Are you sure you want to process return for "${bookTitle}"?`;
+            if (daysOverdue > 0) {
+                confirmMessage += `\n\n⚠️ This book is ${daysOverdue} day(s) overdue.\nFine amount: $${fineAmount.toFixed(2)}\n\nThis fine will be added to the student's account.`;
+            }
+            
+            if (confirm(confirmMessage)) {
+                let loader = document.getElementById('loader');
+                let btn = document.getElementById('returnBtn');
+                
+                loader.style.display = 'block';
+                btn.disabled = true;
+                btn.innerText = 'Processing...';
+                
+                try {
+                    let response = await fetch('{% url "process_return" %}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: `borrowing_id=${currentBorrowId}`
+                    });
+                    
+                    let data = await response.json();
+                    
+                    if (data.success) {
+                        showMessage('success', '✅ ' + data.message);
+                        setTimeout(() => {
+                            location.reload();
+                        }, 2000);
+                    } else {
+                        showMessage('error', '❌ ' + data.message);
+                        btn.disabled = false;
+                        btn.innerText = '📥 Process Book Return';
+                    }
+                } catch (error) {
+                    showMessage('error', '❌ An error occurred. Please try again.');
+                    btn.disabled = false;
+                    btn.innerText = '📥 Process Book Return';
+                } finally {
+                    loader.style.display = 'none';
+                }
+            }
+        }
+        
+        function showMessage(type, message) {
+            let container = document.getElementById('messageContainer');
+            container.innerHTML = `<div class="${type}">${message}</div>`;
+            setTimeout(() => {
+                let msgDiv = document.querySelector('.success, .error');
+                if (msgDiv) {
+                    msgDiv.style.opacity = '0';
+                    setTimeout(() => {
+                        msgDiv.remove();
+                    }, 500);
+                }
+            }, 4000);
+        }
+        
+        // Calculate overdue count
+        function calculateOverdueCount() {
+            let select = document.getElementById('borrowSelect');
+            let options = select.options;
+            let overdue = 0;
+            
+            for (let i = 0; i < options.length; i++) {
+                let daysOverdue = parseInt(options[i].getAttribute('data-days-overdue')) || 0;
+                if (daysOverdue > 0) {
+                    overdue++;
+                }
+            }
+            
+            document.getElementById('overdueCount').innerText = overdue;
+        }
+        
+        // Set today's returns (you can calculate from backend)
+        document.getElementById('todayReturns').innerText = '{{ today_returns|default:"0" }}';
+        
+        // Initialize
+        calculateOverdueCount();
+        
+        // Enter key search
+        document.getElementById('searchInput').addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') {
+                filterBorrowings();
+            }
+        });
+    </script>
+</body>
+</html>

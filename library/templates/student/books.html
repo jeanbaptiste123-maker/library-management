@@ -1,0 +1,122 @@
+<!-- library/templates/student/books.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Browse Books - Student Portal</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f6f9; }
+        
+        .header { background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .header a { color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 5px; margin-left: 10px; }
+        
+        .container { padding: 20px; max-width: 1400px; margin: 0 auto; }
+        
+        .search-box { margin-bottom: 20px; }
+        .search-box input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+        
+        .books-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .book-card { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); transition: transform 0.3s; }
+        .book-card:hover { transform: translateY(-5px); }
+        .book-cover { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 150px; display: flex; align-items: center; justify-content: center; color: white; font-size: 48px; }
+        .book-info { padding: 15px; }
+        .book-title { font-size: 18px; font-weight: bold; color: #2c3e50; margin-bottom: 5px; }
+        .book-author { color: #7f8c8d; font-size: 14px; margin-bottom: 10px; }
+        .book-details { font-size: 13px; color: #666; margin-bottom: 5px; }
+        .available-badge { display: inline-block; padding: 3px 8px; background: #2ecc71; color: white; border-radius: 5px; font-size: 11px; margin-top: 10px; }
+        .unavailable-badge { background: #e74c3c; }
+        .btn-borrow { background: #2ecc71; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; width: 100%; margin-top: 10px; }
+        .btn-borrow:hover { background: #27ae60; }
+        .btn-borrow:disabled { background: #bdc3c7; cursor: not-allowed; }
+        
+        @media (max-width: 768px) {
+            .books-grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📖 Browse Books</h1>
+        <div>
+            <a href="{% url 'student_dashboard' %}">← Dashboard</a>
+            <a href="{% url 'logout' %}">Logout</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="🔍 Search by title, author, or category..." onkeyup="filterBooks()">
+        </div>
+        
+        <div class="books-grid" id="booksGrid">
+            {% for book in books %}
+            <div class="book-card" data-title="{{ book.title|lower }}" data-author="{{ book.author|lower }}" data-category="{{ book.category|lower }}">
+                <div class="book-cover">
+                    📚
+                </div>
+                <div class="book-info">
+                    <div class="book-title">{{ book.title }}</div>
+                    <div class="book-author">by {{ book.author }}</div>
+                    <div class="book-details">📌 {{ book.category|default:"General" }}</div>
+                    <div class="book-details">🏷️ Code: {{ book.book_code }}</div>
+                    <div class="book-details">
+                        📊 Available: {{ book.available_copies }}/{{ book.total_copies }}
+                    </div>
+                    {% if book.available_copies > 0 %}
+                        <span class="available-badge">Available</span>
+                        <button class="btn-borrow" onclick="borrowBook({{ book.id }})">Borrow Book</button>
+                    {% else %}
+                        <span class="available-badge unavailable-badge">Not Available</span>
+                        <button class="btn-borrow" disabled>Out of Stock</button>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <p style="text-align: center; grid-column: 1/-1;">No books found in the library.</p>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <script>
+        function filterBooks() {
+            let input = document.getElementById('searchInput');
+            let filter = input.value.toLowerCase();
+            let cards = document.querySelectorAll('.book-card');
+            
+            cards.forEach(card => {
+                let title = card.getAttribute('data-title');
+                let author = card.getAttribute('data-author');
+                let category = card.getAttribute('data-category');
+                
+                if (title.includes(filter) || author.includes(filter) || category.includes(filter)) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+        
+        function borrowBook(bookId) {
+            if (confirm('Are you sure you want to borrow this book?')) {
+                fetch('{% url "student_borrow" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: `book_id=${bookId}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>

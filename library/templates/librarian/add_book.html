@@ -1,0 +1,106 @@
+<!-- library/templates/librarian/add_book.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Add Book - Library Management System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f6f9; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; }
+        .header a { color: white; text-decoration: none; margin-left: 20px; }
+        .container { padding: 20px; max-width: 600px; margin: 0 auto; }
+        .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .card h2 { margin-bottom: 20px; color: #2c3e50; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #666; font-weight: bold; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-primary { background: #667eea; color: white; width: 100%; }
+        .btn-primary:hover { background: #5a67d8; }
+        .flash-error { background: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📖 Add New Book</h1>
+        <a href="{% url 'manage_books' %}">← Back to Books</a>
+        <a href="{% url 'librarian_dashboard' %}">Dashboard</a>
+    </div>
+    
+    <div class="container">
+        <div class="card">
+            <h2>Book Information</h2>
+            
+            {% if error %}
+            <div class="flash-error">{{ error }}</div>
+            {% endif %}
+            
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Book Code *</label>
+                    <input type="text" name="book_code" required placeholder="e.g., BK001">
+                </div>
+                
+                <div class="form-group">
+                    <label>Title *</label>
+                    <input type="text" name="title" required placeholder="Book title">
+                </div>
+                
+                <div class="form-group">
+                    <label>Author *</label>
+                    <input type="text" name="author" required placeholder="Author name">
+                </div>
+                
+                <div class="form-group">
+                    <label>Publisher</label>
+                    <input type="text" name="publisher" placeholder="Publisher name">
+                </div>
+                
+                <div class="form-group">
+                    <label>ISBN</label>
+                    <input type="text" name="isbn" placeholder="978-3-16-148410-0">
+                </div>
+                
+                <div class="form-group">
+                    <label>Category</label>
+                    <select name="category">
+                        <option value="">Select Category</option>
+                        <option value="Programming">Programming</option>
+                        <option value="Web Development">Web Development</option>
+                        <option value="Database">Database</option>
+                        <option value="Computer Science">Computer Science</option>
+                        <option value="Fiction">Fiction</option>
+                        <option value="Non-Fiction">Non-Fiction</option>
+                        <option value="Science">Science</option>
+                        <option value="Mathematics">Mathematics</option>
+                        <option value="Business">Business</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Edition</label>
+                    <input type="text" name="edition" placeholder="1st Edition">
+                </div>
+                
+                <div class="form-group">
+                    <label>Year of Publication</label>
+                    <input type="number" name="year_of_publication" placeholder="2024">
+                </div>
+                
+                <div class="form-group">
+                    <label>Total Copies *</label>
+                    <input type="number" name="total_copies" required min="1" value="1">
+                </div>
+                
+                <div class="form-group">
+                    <label>Location</label>
+                    <input type="text" name="location" placeholder="Shelf A-1">
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Add Book</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

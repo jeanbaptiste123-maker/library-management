@@ -1,0 +1,359 @@
+<!-- library/templates/librarian/books.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Books - Library Management System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f6f9; }
+        
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .header a { color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 5px; margin-left: 10px; }
+        .header a:hover { background: rgba(255,255,255,0.3); }
+        
+        .container { padding: 20px; max-width: 1400px; margin: 0 auto; }
+        
+        .top-bar { display: flex; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+        .search-box input { padding: 10px; width: 300px; border: 1px solid #ddd; border-radius: 5px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5a67d8; }
+        .btn-danger { background: #e74c3c; color: white; }
+        .btn-danger:hover { background: #c0392b; }
+        .btn-warning { background: #f39c12; color: white; }
+        .btn-warning:hover { background: #e67e22; }
+        .btn-sm { padding: 5px 10px; font-size: 12px; margin: 2px; }
+        
+        .section { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section h2 { margin-bottom: 20px; color: #2c3e50; border-left: 4px solid #667eea; padding-left: 15px; }
+        
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f8f9fa; font-weight: bold; position: sticky; top: 0; }
+        tr:hover { background: #f8f9fa; }
+        
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .badge-available { background: #2ecc71; color: white; }
+        .badge-borrowed { background: #e74c3c; color: white; }
+        .badge-low { background: #f39c12; color: white; }
+        
+        .status-badge { padding: 4px 8px; border-radius: 5px; font-size: 11px; font-weight: bold; }
+        .status-available { background: #d4edda; color: #155724; }
+        .status-borrowed { background: #f8d7da; color: #721c24; }
+        .status-damaged { background: #fff3cd; color: #856404; }
+        
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+        .modal-content { background: white; margin: 5% auto; padding: 30px; width: 500px; border-radius: 10px; max-height: 80%; overflow-y: auto; }
+        .modal-content h3 { margin-bottom: 20px; color: #2c3e50; }
+        .modal-content input, .modal-content select, .modal-content textarea { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
+        .close { float: right; cursor: pointer; font-size: 24px; }
+        
+        .flash { padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+        .flash-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .flash-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        
+        .footer { text-align: center; padding: 20px; margin-top: 20px; color: #7f8c8d; }
+        
+        @media (max-width: 768px) {
+            table { font-size: 12px; }
+            th, td { padding: 8px; }
+            .modal-content { width: 95%; margin: 10% auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📖 Manage Books</h1>
+        <div>
+            <span>Welcome, {{ user.full_name }}</span>
+            <a href="{% url 'librarian_dashboard' %}">Dashboard</a>
+            <a href="{% url 'logout' %}">Logout</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        {% if message %}
+        <div class="flash flash-success">{{ message }}</div>
+        {% endif %}
+        {% if error %}
+        <div class="flash flash-error">{{ error }}</div>
+        {% endif %}
+        
+        <div class="top-bar">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="🔍 Search by title, author, book code, ISBN..." onkeyup="filterTable()">
+            </div>
+            <div>
+                <button class="btn btn-primary" onclick="openAddModal()">➕ Add New Book</button>
+                <button class="btn btn-primary" onclick="exportToCSV()">📥 Export to CSV</button>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>📚 Book Inventory ({{ books|length }} books)</h2>
+            
+            <div style="overflow-x: auto;">
+                <table id="booksTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Book Code</th>
+                            <th>Title</th>
+                            <th>Author</th>
+                            <th>Category</th>
+                            <th>Publisher</th>
+                            <th>Total</th>
+                            <th>Available</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for book in books %}
+                        <tr>
+                            <td>{{ book.id }}</td>
+                            <td><strong>{{ book.book_code }}</strong></td>
+                            <td>{{ book.title|truncatechars:40 }}</td>
+                            <td>{{ book.author }}</td>
+                            <td>{{ book.category|default:"-" }}</td>
+                            <td>{{ book.publisher|default:"-"|truncatechars:20 }}</td>
+                            <td style="text-align: center;">{{ book.total_copies }}</td>
+                            <td style="text-align: center;">
+                                <span class="badge {% if book.available_copies > 0 %}badge-available{% else %}badge-borrowed{% endif %}">
+                                    {{ book.available_copies }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if book.available_copies > 0 %}
+                                    <span class="status-badge status-available">Available</span>
+                                {% elif book.available_copies == 0 %}
+                                    <span class="status-badge status-borrowed">All Borrowed</span>
+                                {% else %}
+                                    <span class="status-badge status-damaged">{{ book.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="viewBook({{ book.id }})">👁️ View</button>
+                                <button class="btn btn-sm btn-primary" onclick="editBook({{ book.id }})">✏️ Edit</button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteBook({{ book.id }})">🗑️ Delete</button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="10" style="text-align: center;">No books found. Click "Add New Book" to get started.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add/Edit Book Modal -->
+    <div id="bookModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h3 id="modalTitle">Add New Book</h3>
+            <form id="bookForm" method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="book_id" id="bookId">
+                
+                <label>Book Code *</label>
+                <input type="text" name="book_code" id="bookCode" required placeholder="e.g., BK001">
+                
+                <label>Title *</label>
+                <input type="text" name="title" id="title" required placeholder="Book title">
+                
+                <label>Author *</label>
+                <input type="text" name="author" id="author" required placeholder="Author name">
+                
+                <label>ISBN</label>
+                <input type="text" name="isbn" id="isbn" placeholder="978-3-16-148410-0">
+                
+                <label>Publisher</label>
+                <input type="text" name="publisher" id="publisher" placeholder="Publisher name">
+                
+                <label>Category</label>
+                <select name="category" id="category">
+                    <option value="">Select Category</option>
+                    <option value="Programming">Programming</option>
+                    <option value="Web Development">Web Development</option>
+                    <option value="Database">Database</option>
+                    <option value="Computer Science">Computer Science</option>
+                    <option value="Fiction">Fiction</option>
+                    <option value="Non-Fiction">Non-Fiction</option>
+                    <option value="Science">Science</option>
+                    <option value="Mathematics">Mathematics</option>
+                    <option value="Business">Business</option>
+                    <option value="Other">Other</option>
+                </select>
+                
+                <label>Edition</label>
+                <input type="text" name="edition" id="edition" placeholder="1st Edition">
+                
+                <label>Year of Publication</label>
+                <input type="number" name="year_of_publication" id="yearOfPublication" placeholder="2024">
+                
+                <label>Total Copies *</label>
+                <input type="number" name="total_copies" id="totalCopies" required min="1" value="1">
+                
+                <label>Available Copies</label>
+                <input type="number" name="available_copies" id="availableCopies" min="0" value="1">
+                
+                <label>Location</label>
+                <input type="text" name="location" id="location" placeholder="Shelf A-1">
+                
+                <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Book</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- View Book Modal -->
+    <div id="viewModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeViewModal()">&times;</span>
+            <h3>📖 Book Details</h3>
+            <div id="viewDetails"></div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>Library Management System &copy; 2026</p>
+    </div>
+    
+    <script>
+        function filterTable() {
+            let input = document.getElementById('searchInput');
+            let filter = input.value.toLowerCase();
+            let table = document.getElementById('booksTable');
+            let rows = table.getElementsByTagName('tr');
+            
+            for (let i = 1; i < rows.length; i++) {
+                let text = rows[i].innerText.toLowerCase();
+                rows[i].style.display = text.includes(filter) ? '' : 'none';
+            }
+        }
+        
+        function openAddModal() {
+            document.getElementById('modalTitle').innerText = 'Add New Book';
+            document.getElementById('bookForm').reset();
+            document.getElementById('bookId').value = '';
+            document.getElementById('bookForm').action = '{% url "add_book" %}';
+            document.getElementById('bookModal').style.display = 'block';
+        }
+        
+        function editBook(bookId) {
+            // Fetch book data via AJAX
+            fetch(`/librarian/books/json/${bookId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('modalTitle').innerText = 'Edit Book';
+                        document.getElementById('bookId').value = bookId;
+                        document.getElementById('bookCode').value = data.book.book_code;
+                        document.getElementById('title').value = data.book.title;
+                        document.getElementById('author').value = data.book.author;
+                        document.getElementById('isbn').value = data.book.isbn || '';
+                        document.getElementById('publisher').value = data.book.publisher || '';
+                        document.getElementById('category').value = data.book.category || '';
+                        document.getElementById('edition').value = data.book.edition || '';
+                        document.getElementById('yearOfPublication').value = data.book.year_of_publication || '';
+                        document.getElementById('totalCopies').value = data.book.total_copies;
+                        document.getElementById('availableCopies').value = data.book.available_copies;
+                        document.getElementById('location').value = data.book.location || '';
+                        document.getElementById('bookForm').action = `/librarian/books/edit/${bookId}/`;
+                        document.getElementById('bookModal').style.display = 'block';
+                    }
+                });
+        }
+        
+        function viewBook(bookId) {
+            fetch(`/librarian/books/json/${bookId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let details = `
+                            <table style="width: 100%;">
+                                <tr><td style="width: 30%;"><strong>Book Code:</strong></td><td>${data.book.book_code}</td></tr>
+                                <tr><td><strong>Title:</strong></td><td>${data.book.title}</td></tr>
+                                <tr><td><strong>Author:</strong></td><td>${data.book.author}</td></tr>
+                                <tr><td><strong>ISBN:</strong></td><td>${data.book.isbn || '-'}</td></tr>
+                                <tr><td><strong>Publisher:</strong></td><td>${data.book.publisher || '-'}</td></tr>
+                                <tr><td><strong>Category:</strong></td><td>${data.book.category || '-'}</td></tr>
+                                <tr><td><strong>Edition:</strong></td><td>${data.book.edition || '-'}</td></tr>
+                                <tr><td><strong>Year:</strong></td><td>${data.book.year_of_publication || '-'}</td></tr>
+                                <tr><td><strong>Total Copies:</strong></td><td>${data.book.total_copies}</td></tr>
+                                <tr><td><strong>Available Copies:</strong></td><td>${data.book.available_copies}</td></tr>
+                                <tr><td><strong>Location:</strong></td><td>${data.book.location || '-'}</td></tr>
+                                <tr><td><strong>Added Date:</strong></td><td>${data.book.added_date || '-'}</td></tr>
+                            </table>
+                        `;
+                        document.getElementById('viewDetails').innerHTML = details;
+                        document.getElementById('viewModal').style.display = 'block';
+                    }
+                });
+        }
+        
+        function deleteBook(bookId) {
+            if (confirm('Are you sure you want to delete this book? This action cannot be undone.')) {
+                fetch(`/librarian/books/delete/${bookId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.message);
+                    }
+                });
+            }
+        }
+        
+        function closeModal() {
+            document.getElementById('bookModal').style.display = 'none';
+        }
+        
+        function closeViewModal() {
+            document.getElementById('viewModal').style.display = 'none';
+        }
+        
+        function exportToCSV() {
+            let table = document.getElementById('booksTable');
+            let rows = table.getElementsByTagName('tr');
+            let csv = [];
+            
+            for (let i = 0; i < rows.length; i++) {
+                let row = [], cols = rows[i].querySelectorAll('td, th');
+                for (let j = 0; j < cols.length - 1; j++) { // Exclude Actions column
+                    let text = cols[j].innerText;
+                    row.push('"' + text.replace(/"/g, '""') + '"');
+                }
+                csv.push(row.join(','));
+            }
+            
+            let blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+            let link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'books_export.csv';
+            link.click();
+        }
+        
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('bookModal')) {
+                closeModal();
+            }
+            if (event.target == document.getElementById('viewModal')) {
+                closeViewModal();
+            }
+        };
+    </script>
+</body>
+</html>

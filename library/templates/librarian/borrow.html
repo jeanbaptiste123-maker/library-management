@@ -1,0 +1,306 @@
+<!-- library/templates/librarian/borrow.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Borrow Book - Librarian Panel</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f6f9; }
+        
+        .header { background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 24px; }
+        .header a { color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 5px; margin-left: 10px; }
+        
+        .container { padding: 20px; max-width: 1200px; margin: 0 auto; }
+        
+        .borrow-card { background: white; border-radius: 10px; padding: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .borrow-card h2 { margin-bottom: 20px; color: #2c3e50; border-left: 4px solid #3498db; padding-left: 15px; }
+        
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; color: #2c3e50; font-weight: bold; }
+        .form-group select, .form-group input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
+        .form-group select:focus, .form-group input:focus { outline: none; border-color: #3498db; }
+        
+        .info-box { background: #e8f4f8; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #3498db; }
+        .info-box p { margin: 5px 0; }
+        
+        .btn { padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .btn-primary { background: #3498db; color: white; width: 100%; }
+        .btn-primary:hover { background: #2980b9; }
+        
+        .student-info { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 20px; display: none; }
+        .student-info h4 { color: #2c3e50; margin-bottom: 10px; }
+        .student-detail { margin: 8px 0; }
+        .student-detail strong { width: 150px; display: inline-block; }
+        
+        .success { background: #d4edda; color: #155724; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .error { background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        
+        .loader { display: none; text-align: center; margin: 10px; }
+        .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        
+        @media (max-width: 768px) {
+            .row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📤 Borrow Book - Librarian</h1>
+        <div>
+            <a href="{% url 'librarian_dashboard' %}">← Dashboard</a>
+            <a href="{% url 'logout' %}">Logout</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="borrow-card">
+            <h2>📖 Issue Book to Student</h2>
+            
+            <div id="messageContainer"></div>
+            
+            <div class="row">
+                <div>
+                    <div class="form-group">
+                        <label>Select Student</label>
+                        <select id="studentSelect" onchange="getStudentInfo()">
+                            <option value="">-- Select Student --</option>
+                            {% for student in students %}
+                            <option value="{{ student.student_id }}" data-name="{{ student.full_name }}" data-department="{{ student.department }}" data-current="{{ student.current_books_borrowed }}" data-limit="{{ student.max_books_limit }}" data-fine="{{ student.fine_amount }}">
+                                {{ student.student_id }} - {{ student.full_name }} ({{ student.department }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Select Book</label>
+                        <select id="bookSelect">
+                            <option value="">-- Select Book --</option>
+                            {% for book in books %}
+                            <option value="{{ book.id }}" data-title="{{ book.title }}" data-author="{{ book.author }}" data-copies="{{ book.available_copies }}">
+                                {{ book.book_code }} - {{ book.title }} by {{ book.author }} (Available: {{ book.available_copies }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Borrow Duration (Days)</label>
+                        <select id="duration">
+                            <option value="7">7 Days</option>
+                            <option value="14" selected>14 Days</option>
+                            <option value="21">21 Days</option>
+                            <option value="30">30 Days</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <div id="studentInfo" class="student-info">
+                        <h4>👨‍🎓 Student Information</h4>
+                        <div class="student-detail"><strong>Student ID:</strong> <span id="infoStudentId">-</span></div>
+                        <div class="student-detail"><strong>Name:</strong> <span id="infoName">-</span></div>
+                        <div class="student-detail"><strong>Department:</strong> <span id="infoDept">-</span></div>
+                        <div class="student-detail"><strong>Currently Borrowed:</strong> <span id="infoCurrent">0</span> / <span id="infoLimit">5</span></div>
+                        <div class="student-detail"><strong>Remaining Limit:</strong> <span id="infoRemaining">5</span></div>
+                        <div class="student-detail"><strong>Fine Amount:</strong> $<span id="infoFine">0</span></div>
+                    </div>
+                    
+                    <div id="bookInfo" class="student-info">
+                        <h4>📚 Book Information</h4>
+                        <div class="student-detail"><strong>Book Title:</strong> <span id="infoBookTitle">-</span></div>
+                        <div class="student-detail"><strong>Author:</strong> <span id="infoBookAuthor">-</span></div>
+                        <div class="student-detail"><strong>Available Copies:</strong> <span id="infoBookCopies">0</span></div>
+                        <div class="student-detail"><strong>Status:</strong> <span id="infoBookStatus">-</span></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="loader" id="loader">
+                <div class="spinner"></div>
+                <p>Processing...</p>
+            </div>
+            
+            <button class="btn btn-primary" onclick="processBorrow()" id="borrowBtn">
+                📤 Issue Book to Student
+            </button>
+            
+            <div class="info-box">
+                <p><strong>📌 Borrowing Rules:</strong></p>
+                <ul style="margin-left: 20px; margin-top: 10px;">
+                    <li>Maximum borrowing limit: <span id="ruleLimit">5</span> books per student</li>
+                    <li>Borrowing period: 14 days</li>
+                    <li>Late fee: $0.50 per day after due date</li>
+                    <li>Students with unpaid fines cannot borrow</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function getStudentInfo() {
+            let select = document.getElementById('studentSelect');
+            let selected = select.options[select.selectedIndex];
+            let studentInfo = document.getElementById('studentInfo');
+            
+            if (select.value) {
+                let studentId = select.value;
+                let name = selected.getAttribute('data-name');
+                let department = selected.getAttribute('data-department');
+                let current = parseInt(selected.getAttribute('data-current')) || 0;
+                let limit = parseInt(selected.getAttribute('data-limit')) || 5;
+                let fine = parseFloat(selected.getAttribute('data-fine')) || 0;
+                let remaining = limit - current;
+                
+                document.getElementById('infoStudentId').innerText = studentId;
+                document.getElementById('infoName').innerText = name;
+                document.getElementById('infoDept').innerText = department;
+                document.getElementById('infoCurrent').innerText = current;
+                document.getElementById('infoLimit').innerText = limit;
+                document.getElementById('infoRemaining').innerHTML = `<strong style="color: ${remaining > 0 ? '#27ae60' : '#e74c3c'}">${remaining}</strong>`;
+                document.getElementById('infoFine').innerHTML = `<strong style="color: ${fine > 0 ? '#e74c3c' : '#27ae60'}">${fine}</strong>`;
+                
+                studentInfo.style.display = 'block';
+                
+                // Check if student can borrow
+                if (current >= limit) {
+                    showMessage('error', `⚠️ This student has reached their borrowing limit (${limit}/${limit}). Please ask them to return books first.`);
+                    document.getElementById('borrowBtn').disabled = true;
+                } else if (fine > 0) {
+                    showMessage('error', `⚠️ This student has unpaid fines of $${fine}. Please clear fines first.`);
+                    document.getElementById('borrowBtn').disabled = true;
+                } else {
+                    document.getElementById('borrowBtn').disabled = false;
+                    clearMessage();
+                }
+            } else {
+                studentInfo.style.display = 'none';
+            }
+            
+            // Also update book info if book is selected
+            getBookInfo();
+        }
+        
+        function getBookInfo() {
+            let select = document.getElementById('bookSelect');
+            let selected = select.options[select.selectedIndex];
+            let bookInfo = document.getElementById('bookInfo');
+            
+            if (select.value) {
+                let title = selected.getAttribute('data-title');
+                let author = selected.getAttribute('data-author');
+                let copies = parseInt(selected.getAttribute('data-copies')) || 0;
+                
+                document.getElementById('infoBookTitle').innerText = title;
+                document.getElementById('infoBookAuthor').innerText = author;
+                document.getElementById('infoBookCopies').innerHTML = `<strong style="color: ${copies > 0 ? '#27ae60' : '#e74c3c'}">${copies}</strong>`;
+                document.getElementById('infoBookStatus').innerHTML = copies > 0 ? '<span style="color: #27ae60;">✓ Available</span>' : '<span style="color: #e74c3c;">✗ Not Available</span>';
+                
+                bookInfo.style.display = 'block';
+                
+                if (copies <= 0) {
+                    showMessage('error', '⚠️ This book is currently not available.');
+                    document.getElementById('borrowBtn').disabled = true;
+                } else {
+                    // Re-enable if student is also eligible
+                    let studentSelect = document.getElementById('studentSelect');
+                    if (studentSelect.value) {
+                        let selectedStudent = studentSelect.options[studentSelect.selectedIndex];
+                        let current = parseInt(selectedStudent.getAttribute('data-current')) || 0;
+                        let limit = parseInt(selectedStudent.getAttribute('data-limit')) || 5;
+                        let fine = parseFloat(selectedStudent.getAttribute('data-fine')) || 0;
+                        
+                        if (current < limit && fine <= 0) {
+                            document.getElementById('borrowBtn').disabled = false;
+                            clearMessage();
+                        }
+                    }
+                }
+            } else {
+                bookInfo.style.display = 'none';
+            }
+        }
+        
+        async function processBorrow() {
+            let studentId = document.getElementById('studentSelect').value;
+            let bookId = document.getElementById('bookSelect').value;
+            let duration = document.getElementById('duration').value;
+            
+            if (!studentId) {
+                alert('Please select a student');
+                return;
+            }
+            
+            if (!bookId) {
+                alert('Please select a book');
+                return;
+            }
+            
+            if (confirm('Are you sure you want to issue this book to the student?')) {
+                let loader = document.getElementById('loader');
+                let btn = document.getElementById('borrowBtn');
+                
+                loader.style.display = 'block';
+                btn.disabled = true;
+                btn.innerText = 'Processing...';
+                
+                try {
+                    let response = await fetch('{% url "process_borrow" %}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: `book_id=${bookId}&student_id=${studentId}&days=${duration}`
+                    });
+                    
+                    let data = await response.json();
+                    
+                    if (data.success) {
+                        showMessage('success', '✅ ' + data.message);
+                        setTimeout(() => {
+                            location.reload();
+                        }, 2000);
+                    } else {
+                        showMessage('error', '❌ ' + data.message);
+                        btn.disabled = false;
+                        btn.innerText = '📤 Issue Book to Student';
+                    }
+                } catch (error) {
+                    showMessage('error', '❌ An error occurred. Please try again.');
+                    btn.disabled = false;
+                    btn.innerText = '📤 Issue Book to Student';
+                } finally {
+                    loader.style.display = 'none';
+                }
+            }
+        }
+        
+        function showMessage(type, message) {
+            let container = document.getElementById('messageContainer');
+            container.innerHTML = `<div class="${type}">${message}</div>`;
+            setTimeout(() => {
+                if (document.querySelector('.success')) {
+                    document.querySelector('.success').style.display = 'none';
+                }
+                if (document.querySelector('.error')) {
+                    document.querySelector('.error').style.display = 'none';
+                }
+            }, 5000);
+        }
+        
+        function clearMessage() {
+            let container = document.getElementById('messageContainer');
+            container.innerHTML = '';
+        }
+        
+        // Attach event listeners
+        document.getElementById('studentSelect').addEventListener('change', getStudentInfo);
+        document.getElementById('bookSelect').addEventListener('change', getBookInfo);
+    </script>
+</body>
+</html>
